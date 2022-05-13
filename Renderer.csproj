@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.7.1" />
+    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy /Y &quot;$(ProjectDir)Shaders\&quot; &quot;$(ProjectDir)$(OutDir)&quot;&#xD;&#xA;copy /Y &quot;$(ProjectDir)Textures\&quot; &quot;$(ProjectDir)$(OutDir)&quot;&#xD;&#xA;copy /Y &quot;$(ProjectDir)Models\&quot; &quot;$(ProjectDir)$(OutDir)&quot;" />
+  </Target>
+
+</Project>

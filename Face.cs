@@ -1,23 +1,19 @@
 ﻿using OpenTK.Mathematics;
+using System.Collections.Generic;
 
 namespace Renderer
 {
-    public struct Face
+    public class Face
     {
-        public Vector3 pa;
-        public Vector3 pb;
-        public Vector3 pc;
+        public List<Vector3> positions;
+        public List<Vector2> texCoords;
+        public List<Vector3> normals;
 
-        public Vector2 tca;
-        public Vector2 tcb;
-        public Vector2 tcc;
-
-        public Vector3 na;
-        public Vector3 nb;
-        public Vector3 nc;
-
-        //public Vector2 lmca;
-        //public Vector2 lmcb;
-        //public Vector2 lmcc;
+        public Face()
+        {
+            positions = new List<Vector3>();
+            texCoords = new List<Vector2>();
+            normals = new List<Vector3>();
+        }
     }
 }

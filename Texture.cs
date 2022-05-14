@@ -1,5 +1,4 @@
 ﻿using OpenTK.Graphics.OpenGL;
-using OpenTK.Mathematics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
@@ -9,9 +8,11 @@ namespace Renderer
     public class Texture
     {
         public readonly int id;
-        private bool dirty;
         private BitmapData data;
-        private Vector2i size;
+        private bool dirty;
+
+        public int Width { get => data.Width; }
+        public int Height { get => data.Height; }
 
         public Texture()
         {
@@ -41,18 +42,6 @@ namespace Renderer
             return id;
         }
 
-        public Vector2i GetSize() => size;
-
-        public int GetWidth() => size.X;
-
-        public int GetHeight() => size.Y;
-
-        public void SetSize(int width, int height)
-        {
-            dirty = true;
-            size = new Vector2i(width, height);
-        }
-
         public void Parse(string path)
         {
             var image = new Bitmap(path);
@@ -60,8 +49,9 @@ namespace Renderer
 
             image.RotateFlip(RotateFlipType.RotateNoneFlipY);
 
-            SetSize(image.Width, image.Height);
             data = image.LockBits(rect, ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+            dirty = true;
         }
     }
 }

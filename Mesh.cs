@@ -41,12 +41,11 @@ namespace Renderer
         public void Parse(string path)
         {
             List<Vector3> positions = new List<Vector3>();
-            List<Vector2> tcs = new List<Vector2>();
+            List<Vector2> texCoords = new List<Vector2>();
             List<Vector3> normals = new List<Vector3>();
             List<Face> faces = new List<Face>();
 
-            using var reader = new StreamReader(path, Encoding.UTF8);
-            List<string> lines = GetModelData(reader);
+            IEnumerable<string> lines = GetModelData(path);
 
             foreach (string line in lines)
             {
@@ -70,7 +69,7 @@ namespace Renderer
                         X = float.Parse(lineTokens[1]),
                         Y = float.Parse(lineTokens[2])
                     };
-                    tcs.Add(vector);
+                    texCoords.Add(vector);
                 }
                 else if (lineType.Equals("vn"))
                 {
@@ -86,20 +85,13 @@ namespace Renderer
                 {
                     Face face = new Face();
 
-                    string[] sub1 = lineTokens[1].Split('/');
-                    if (sub1.Length >= 1) face.pa = positions[int.Parse(sub1[0]) - 1];
-                    if (sub1.Length >= 2) face.tca = tcs[int.Parse(sub1[1]) - 1];
-                    if (sub1.Length >= 3) face.na = normals[int.Parse(sub1[2]) - 1];
-
-                    string[] sub2 = lineTokens[2].Split('/');
-                    if (sub2.Length >= 1) face.pb = positions[int.Parse(sub2[0]) - 1];
-                    if (sub2.Length >= 2) face.tcb = tcs[int.Parse(sub2[1]) - 1];
-                    if (sub2.Length >= 3) face.nb = normals[int.Parse(sub2[2]) - 1];
-
-                    string[] sub3 = lineTokens[3].Split('/');
-                    if (sub3.Length >= 1) face.pc = positions[int.Parse(sub3[0]) - 1];
-                    if (sub3.Length >= 2) face.tcc = tcs[int.Parse(sub3[1]) - 1];
-                    if (sub3.Length >= 3) face.nc = normals[int.Parse(sub3[2]) - 1];
+                    for (int i = 1; i < lineTokens.Length; i++)
+                    {
+                        var sub = lineTokens[i].Split('/');
+                        if (sub.Length >= 1) face.positions.Add(positions[int.Parse(sub[0]) - 1]);
+                        if (sub.Length >= 2) face.texCoords.Add(texCoords[int.Parse(sub[1]) - 1]);
+                        if (sub.Length >= 3) face.normals.Add(normals[int.Parse(sub[2]) - 1]);
+                    }
 
                     faces.Add(face);
                 }
@@ -112,23 +104,19 @@ namespace Renderer
 
                 foreach (Face face in faces)
                 {
-                    buffer.Add(face.pa);
-                    buffer.Add(face.pb);
-                    buffer.Add(face.pc);
+                    face.positions.ForEach(p => buffer.Add(p));
                 }
 
                 SetBuffer("aPosition", buffer);
             }
 
-            if (tcs.Count > 0)
+            if (texCoords.Count > 0)
             {
                 var buffer = new Buffer();
 
                 foreach (Face face in faces)
                 {
-                    buffer.Add(face.tca);
-                    buffer.Add(face.tcb);
-                    buffer.Add(face.tcc);
+                    face.texCoords.ForEach(t => buffer.Add(t));
                 }
 
                 SetBuffer("aTexCoord", buffer);
@@ -140,28 +128,24 @@ namespace Renderer
 
                 foreach (Face face in faces)
                 {
-                    buffer.Add(face.na);
-                    buffer.Add(face.nb);
-                    buffer.Add(face.nc);
+                    face.normals.ForEach(n => buffer.Add(n));
                 }
 
                 SetBuffer("aNormal", buffer);
             }
         }
 
-        private static List<string> GetModelData(StreamReader reader) => ReadAllLines(reader)
-            .Where(l => l.StartsWith('v') || l.StartsWith('f')).ToList();
-
-        private static List<string> ReadAllLines(StreamReader reader)
+        private IEnumerable<string> GetModelData(string path)
         {
-            List<string> lines = new List<string>();
+            using var reader = new StreamReader(path, Encoding.UTF8);
+            var lines = new List<string>();
 
             while (!reader.EndOfStream)
             {
                 lines.Add(reader.ReadLine());
             }
 
-            return lines;
+            return lines.Where(l => l.StartsWith('v') || l.StartsWith('f'));
         }
     }
 }

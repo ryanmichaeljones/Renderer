@@ -31,61 +31,51 @@ namespace Renderer
 
             foreach (VariableInfo variable in cache)
             {
-                if (variable.isAttribute == false)
+                if (variable.IsAttribute == false)
                 {
-                    if (variable.type.Equals(ActiveUniformType.FloatMat4))
+                    switch (variable.Type)
                     {
-                        GL.UniformMatrix4(variable.location, false, ref variable.matrix4Value);
-                    }
-                    else if (variable.type.Equals(ActiveUniformType.FloatVec2))
-                    {
-                        GL.Uniform2(variable.location, variable.vector2Value);
-                    }
-                    else if (variable.type.Equals(ActiveUniformType.FloatVec3))
-                    {
-                        GL.Uniform3(variable.location, variable.vector3Value);
-                    }
-                    else if (variable.type.Equals(ActiveUniformType.FloatVec4))
-                    {
-                        GL.Uniform4(variable.location, variable.vector4Value);
-                    }
-                    else if (variable.type.Equals(ActiveUniformType.Sampler2D))
-                    {
-                        GL.ActiveTexture(TextureUnit.Texture0 + activeTexture);
-                        GL.BindTexture(TextureTarget.Texture2D, variable.textureValue.GetId());
-                        GL.Uniform1(variable.location, activeTexture);
-                        activeTexture++;
-                    }
-                    else if (variable.type.Equals(ActiveUniformType.Float))
-                    {
-                        GL.Uniform1(variable.location, variable.floatValue);
+                        case ActiveUniformType.Float:
+                            GL.Uniform1(variable.Location, variable.floatValue);
+                            break;
+                        case ActiveUniformType.FloatMat4:
+                            GL.UniformMatrix4(variable.Location, false, ref variable.matrix4Value);
+                            break;
+                        case ActiveUniformType.FloatVec2:
+                            GL.Uniform2(variable.Location, variable.vector2Value);
+                            break;
+                        case ActiveUniformType.FloatVec3:
+                            GL.Uniform3(variable.Location, variable.vector3Value);
+                            break;
+                        case ActiveUniformType.FloatVec4:
+                            GL.Uniform4(variable.Location, variable.vector4Value);
+                            break;
+                        case ActiveUniformType.Sampler2D:
+                            GL.ActiveTexture(TextureUnit.Texture0 + activeTexture);
+                            GL.BindTexture(TextureTarget.Texture2D, variable.textureValue.GetId());
+                            GL.Uniform1(variable.Location, activeTexture++);
+                            break;
+                        default:
+                            throw new ArgumentException($"Variable type {variable.Type} is not valid or not implemented");
                     }
                 }
                 else
                 {
-                    int size = 0;
-
-                    if (variable.type == ActiveUniformType.Float) size = 1;
-                    else if (variable.type == ActiveUniformType.FloatVec2) size = 2;
-                    else if (variable.type == ActiveUniformType.FloatVec3) size = 3;
-                    else if (variable.type == ActiveUniformType.FloatVec4) size = 4;
-                    else throw new ArgumentException("Invalid buffer type");
+                    int size = VariableInfo.GetAttributeSize(variable.Type);
 
                     GL.BindBuffer(BufferTarget.ArrayBuffer, variable.bufferValue.GetId());
-
-                    GL.VertexAttribPointer(variable.location, size, VertexAttribPointerType.Float, false, 0, 0);
-                    GL.EnableVertexAttribArray(variable.location);
-
+                    GL.VertexAttribPointer(variable.Location, size, VertexAttribPointerType.Float, false, 0, 0);
+                    GL.EnableVertexAttribArray(variable.Location);
                     GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
                     size = variable.bufferValue.GetSize();
 
                     if (vertices == -1) vertices = size;
-                    if (vertices != size) throw new Exception("Attribute streams are of different sizes");
+                    if (vertices != size) throw new ArgumentException("Attribute streams are of different sizes");
                 }
             }
 
-            if (vertices == -1) throw new Exception("No vertices were submitted for drawing");
+            if (vertices == -1) throw new ArgumentException("No vertices were submitted for drawing");
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, vertices);
             GL.UseProgram(0);
@@ -130,20 +120,14 @@ namespace Renderer
 
         private VariableInfo GetVariableInfo(string name, ActiveUniformType type, bool isAttribute)
         {
-            if (cache.TryGetValue(v => v.name.Equals(name), out VariableInfo variable))
+            if (cache.TryGetValue(v => v.Name.Equals(name), out VariableInfo variable))
             {
-                if (variable.type == type && variable.isAttribute == isAttribute) { return variable; }
+                if (variable.Type == type && variable.IsAttribute == isAttribute) { return variable; }
                 else throw new ArgumentException($"Variable type of {name} does not match");
             }
             else
             {
-                variable = new VariableInfo
-                {
-                    name = name,
-                    type = type,
-                    isAttribute = isAttribute,
-                    location = VariableInfo.GetLocation(id, name, isAttribute)
-                };
+                variable = new VariableInfo(id, name, type, isAttribute);
 
                 cache.Add(variable);
 
@@ -156,39 +140,44 @@ namespace Renderer
             cache.Clear();
 
             string vertexSrc = File.ReadAllText(vertexPath);
-            int vertexId = GL.CreateShader(ShaderType.VertexShader);
-
-            GL.ShaderSource(vertexId, vertexSrc);
-
-            GL.CompileShader(vertexId);
-
-            GL.GetShader(vertexId, ShaderParameter.CompileStatus, out int code);
-            GL.GetShaderInfoLog(vertexId, out string info);
-            if (code != (int)All.True) throw new Exception(info);
-
             string fragmentSrc = File.ReadAllText(fragmentPath);
+
+            int vertexId = GL.CreateShader(ShaderType.VertexShader);
             int fragmentId = GL.CreateShader(ShaderType.FragmentShader);
 
+            GL.ShaderSource(vertexId, vertexSrc);
             GL.ShaderSource(fragmentId, fragmentSrc);
 
-            GL.CompileShader(fragmentId);
-
-            GL.GetShader(fragmentId, ShaderParameter.CompileStatus, out code);
-            GL.GetShaderInfoLog(fragmentId, out info);
-            if (code != (int)All.True) throw new Exception(info);
+            CompileShader(vertexId);
+            CompileShader(fragmentId);
 
             GL.AttachShader(id, vertexId);
             GL.AttachShader(id, fragmentId);
-            GL.LinkProgram(id);
 
-            GL.GetProgram(id, GetProgramParameterName.LinkStatus, out code);
-            GL.GetShaderInfoLog(id, out info);
-            if (code != (int)All.True) throw new Exception(info);
+            LinkShaderProgram();
 
             GL.DetachShader(id, vertexId);
             GL.DetachShader(id, fragmentId);
             GL.DeleteShader(vertexId);
             GL.DeleteShader(fragmentId);
+        }
+
+        private void CompileShader(int shaderId)
+        {
+            GL.CompileShader(shaderId);
+
+            GL.GetShader(shaderId, ShaderParameter.CompileStatus, out int code);
+            GL.GetShaderInfoLog(shaderId, out string info);
+            if (code != (int)All.True) throw new Exception(info);
+        }
+
+        private void LinkShaderProgram()
+        {
+            GL.LinkProgram(id);
+
+            GL.GetProgram(id, GetProgramParameterName.LinkStatus, out int code);
+            GL.GetShaderInfoLog(id, out string info);
+            if (code != (int)All.True) throw new Exception(info);
         }
     }
 }
